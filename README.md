@@ -73,7 +73,7 @@ Common Lisp binding for Sophia database
     (setf ($ "x") "foo"
           ($ "y") "bar")
     (handler-case
-        (with-transaction ()            ; Signaled transaction-error with :lock state
+        (with-transaction ()            ; signaled transaction-error with :lock state
           (setf ($ "y") "baz"))
       (transaction-error (c)
         (transaction-state c)           ; :lock
@@ -87,7 +87,7 @@ Common Lisp binding for Sophia database
 ```
 ##### Iterator
 ```lisp
-(with-database ("test4" :cmp :u32)
+(with-database ("test" :cmp :u32)
   (dotimes (i 3)
     (let ((i (1+ i)))
       (setf ($ i) (format nil "~r" i))))
