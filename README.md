@@ -1,37 +1,109 @@
-# cl-sophia
+# CL-SOPHIA
 Common Lisp binding for Sophia database
 
 ### Examples
-##### set and get
+##### Set and get
 ```lisp
-(with-database ()
-  (setf (object "a") "foo"
-        (object "b") "bar")
-  (values (object "a")
-          (object "b")
-          (object "c")))
-;; "x"
-;; "y"
+(with-database ("test")
+  (setf ($ "x") "a"
+        ($ "y") "b")
+  (values ($ "x")
+          ($ "y")
+          ($ "z")))
+
+;; "a"
+;; "b"
 ;; NIL
 ```
-##### delete
+##### Delete
 ```lisp
-(with-database ()
-  (setf (object "a") "x")
-  (let ((a (object "a")))
-    (setf (object "a") nil)
-    (values a (object "a"))))
-;; "x"
+(with-database ("test")
+  (setf ($ "x") "a")
+  (let ((x ($ "x")))
+    (setf ($ "x") nil)
+    (values x ($ "x"))))
+
+;; "a"
 ;; NIL
 ```
-##### set and get with (unsigned-byte 32) keys
+##### Transaction
 ```lisp
-(with-database (:cmp :u32)
-  (let ((n 10))
-    (dotimes (i n)
-      (setf (object i) (format nil "~r" i)))
-    (let (result)
-      (dotimes (i n (nreverse result))
-        (push (object i) result)))))
-;; ("zero" "one" "two" "three" "four" "five" "six" "seven" "eight" "nine")
+(with-database ("test" :cmp :u32)
+  (with-transaction ()
+    (setf ($ 0) "a"
+          ($ 1) "b"
+          ($ 2) "c"))
+  (ignore-errors
+    (with-transaction ()
+      (setf ($ 1) nil)
+      (error "Oops!")))
+  (values ($ 0)
+          ($ 1)
+          ($ 2)))
+
+;; "a"
+;; "b"
+;; "c"
+```
+###### Transaction over two databases
+```lisp
+(with-named-databases ((dbx "dbx" :cmp :string) ; by default
+                       (dby "dby" :cmp :u32))
+  (with-transaction ()
+    (setf ($ "x" dbx) "a"
+          ($ 100 dby) "b"))
+  (ignore-errors
+    (with-transaction ()
+      (setf ($ "x" dbx) "foo"
+            ($ 100 dby) "bar"
+            ($ 101 dby) "baz")
+      (error "Oops!")))
+  (values ($ "x" dbx)
+          ($ 100 dby)
+          ($ 101 dby)))
+
+;; "a"
+;; "b"
+;; NIL
+```
+###### Nested transaction
+```lisp
+(with-database ("test")
+  (with-transaction ()
+    (setf ($ "x") "foo"
+          ($ "y") "bar")
+    (handler-case
+        (with-transaction ()            ; Signaled transaction-error with :lock state
+          (setf ($ "y") "baz"))
+      (transaction-error (c)
+        (transaction-state c)           ; :lock
+        )))
+
+  (values ($ "x")
+          ($ "y")))
+
+;; "foo"
+;; "bar"
+```
+##### Iterator
+```lisp
+(with-database ("test4" :cmp :u32)
+  (dotimes (i 3)
+    (let ((i (1+ i)))
+      (setf ($ i) (format nil "~r" i))))
+
+  (let ((*order* :>=))                  ; by default
+    (with-database-iterator (fn)
+      (list #1=(multiple-value-list (fn))
+            #1#
+            #1#
+            #1#)))
+  ;; ((T 1 "one") (T 2 "two") (T 3 "three") (NIL))
+
+  (let ((*order* :<=))
+    (collecting
+      (map-object (lambda (key value)
+                    (collect (cons key value))))))
+  ;; ((3 . "three") (2 . "two") (1 . "one"))
+  )
 ```
