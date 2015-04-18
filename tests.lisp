@@ -66,14 +66,13 @@
 
       (setf ($ "y" db-a) "Y"
             ($ "z" db-b) "Z")
-      
       (assert-false ($ "y" db-b))
       (assert-false ($ "z" db-a)))
 
     (with-database ("db-a")
       (assert-equal "foo" ($ "x"))
       (assert-false ($ "z")))
-    
+
     (with-database ("db-b")
       (assert-equal "bar" ($ "x"))
       (assert-false ($ "y")))))
@@ -107,6 +106,25 @@
                           (push val dbvals)))
             (assert-equal keys dbkeys)
             (assert-equal vals dbvals)))))))
+
+(define-test comparators
+  (with-temp-sophia-directory ()
+    (macrolet ((expected-type (form)
+                 `(handler-case
+                      (progn
+                        ,form
+                        t)
+                    (type-error (e)
+                      (type-error-expected-type e)))))
+      (with-named-databases ((db-str "db-str" :cmp :string)
+                             (db-u32 "db-u32" :cmp :u32))
+        (assert-true (expected-type ($ "foobar" db-str)))
+        (assert-equal 'string (expected-type ($ pi db-str)))
+        (assert-true (expected-type ($ #x0 db-u32)))
+        (assert-true (expected-type ($ #xFFFFFFFF db-u32)))
+        (assert-equal '(unsigned-byte 32) (expected-type ($ pi db-u32)))
+        (assert-equal '(unsigned-byte 32) (expected-type ($ -1 db-u32)))
+        (assert-equal '(unsigned-byte 32) (expected-type ($ (1+ #xFFFFFFFF) db-u32)))))))
 
 (defun run ()
   (let ((*print-summary* t))
