@@ -6,7 +6,9 @@
         #:cl-sophia)
   (:import-from #:alexandria
                 #:with-unique-names
-                #:once-only)
+                #:once-only
+                #:iota
+                #:curry)
 
   (:import-from #:cl-utilities
                 #:collecting
@@ -37,26 +39,51 @@
        (let ((sophia:*path* (namestring ,temp)))
          ,@body))))
 
-
 (define-test set-get
   (with-temp-sophia-directory ()
     (with-database ("test")
+      (assert-false ($ "foo"))
       (assert-equal "bar" (setf ($ "foo") "bar"))
       (assert-equal "bar" ($ "foo")))))
 
 (define-test delete
   (with-temp-sophia-directory ()
     (with-database ("test")
-      (setf ($ "x") "a"
-            ($ "y") "b")
-      (assert-equal "a" ($ "x"))
-      (assert-equal "b" ($ "y"))
-      (assert-false (setf ($ "x") nil))
-      (assert-false (setf ($ "y") nil))
       (assert-false ($ "x"))
-      (assert-false ($ "y")))))
+      (assert-equal "a" (setf ($ "x") "a"))
+      (assert-equal "a" ($ "x"))
+      (assert-false (setf ($ "x") nil))
+      (assert-false ($ "x")))))
 
+(define-test iterators
+  (with-temp-sophia-directory ()
+    (with-database ("test" :cmp :u32)
+      (let* ((keys (iota 10000))
+             (vals (mapcar (curry #'format nil "~r") keys)))
+        (mapc (lambda (k v)
+                (setf ($ k) v))
+              keys
+              vals)
 
+        (dolist (*order* '(:>= :>))
+          (let (dbkeys
+                dbvals)
+            (map-object (lambda (key val)
+                          (push key dbkeys)
+                          (push val dbvals)))
+            (let ((dbkeys (nreverse dbkeys))
+                  (dbvals (nreverse dbvals)))
+              (assert-equal keys dbkeys)
+              (assert-equal vals dbvals))))
+
+        (dolist (*order* '(:<= :<))
+          (let (dbkeys
+                dbvals)
+            (map-object (lambda (key val)
+                          (push key dbkeys)
+                          (push val dbvals)))
+            (assert-equal keys dbkeys)
+            (assert-equal vals dbvals)))))))
 
 (defun run ()
   (let ((*print-summary* t))
