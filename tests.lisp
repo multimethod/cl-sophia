@@ -55,10 +55,33 @@
       (assert-false (setf ($ "x") nil))
       (assert-false ($ "x")))))
 
+(define-test multiple-databases
+  (with-temp-sophia-directory ()
+    (with-named-databases ((db-a "db-a")
+                           (db-b "db-b"))
+      (setf ($ "x" db-a) "foo"
+            ($ "x" db-b) "bar")
+      (assert-equal "foo" ($ "x" db-a))
+      (assert-equal "bar" ($ "x" db-b))
+
+      (setf ($ "y" db-a) "Y"
+            ($ "z" db-b) "Z")
+      
+      (assert-false ($ "y" db-b))
+      (assert-false ($ "z" db-a)))
+
+    (with-database ("db-a")
+      (assert-equal "foo" ($ "x"))
+      (assert-false ($ "z")))
+    
+    (with-database ("db-b")
+      (assert-equal "bar" ($ "x"))
+      (assert-false ($ "y")))))
+
 (define-test iterators
   (with-temp-sophia-directory ()
     (with-database ("test" :cmp :u32)
-      (let* ((keys (iota 10000))
+      (let* ((keys (iota 1000))
              (vals (mapcar (curry #'format nil "~r") keys)))
         (mapc (lambda (k v)
                 (setf ($ k) v))
