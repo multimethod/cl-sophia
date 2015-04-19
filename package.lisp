@@ -7,14 +7,15 @@
   (:import-from #:alexandria
                 #:with-unique-names
                 #:once-only)
-  (:export #:with-database
+  (:export #:$
+           #:with-database
            #:with-named-database
            #:with-named-databases
            #:with-transaction
+           #:transaction-locked
+           #:recommit
+           #:rollback
            #:with-database-iterator
-           #:$
            #:map-object
            #:*path*
-           #:*order*
-           #:transaction-error
-           #:transaction-state))
+           #:*order*))
