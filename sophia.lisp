@@ -210,23 +210,28 @@
 (defun free-transaction (transaction)
   (check-retcode (sp-destroy transaction)))
 
-(define-condition transaction-error (simple-error)
-  ((state :initarg :state :initform nil :reader transaction-state)))
+(define-condition commit-error (error)
+  ())
+
+(defun recommit (c)
+  (declare (ignore c))
+  (invoke-restart 'recommit))
+
+(defun rollback (c)
+  (declare (ignore c))
+  (invoke-restart 'rollback))
 
 (defun commit-transction (transaction)
   (let ((retcode (sp-commit transaction)))
     (unless (= 0 retcode)
-      (let ((transaction-error (make-condition 'transaction-error :format-control "Failed to commit transaction")))
-        (with-slots (state) transaction-error
-          (case retcode
-            (1
-             (setf state :rollback)
-             (error transaction-error))
-            (2
-             (setf state :lock)
-             (error transaction-error))
-            (otherwise
-             (error 'internal-error :retcode retcode))))))))
+      (if (= 2 retcode)
+          (restart-case
+              (error 'commit-error :format-control "Transaction locked")
+            (recommit ()
+              (commit-transction transaction))
+            (rollback ()
+              (free-transaction transaction)))
+          (error 'internal-error :retcode retcode)))))
 
 (defmacro with-transaction (() &body body)
   (with-unique-names (commited)
