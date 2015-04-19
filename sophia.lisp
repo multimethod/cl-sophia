@@ -210,7 +210,7 @@
 (defun free-transaction (transaction)
   (check-retcode (sp-destroy transaction)))
 
-(define-condition commit-error (error)
+(define-condition transaction-locked (error)
   ())
 
 (defun recommit (c)
@@ -226,7 +226,7 @@
     (unless (= 0 retcode)
       (if (= 2 retcode)
           (restart-case
-              (error 'commit-error :format-control "Transaction locked")
+              (error 'transaction-locked)
             (recommit ()
               (commit-transction transaction))
             (rollback ()
