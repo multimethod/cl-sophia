@@ -113,15 +113,15 @@
                  `(handler-case
                       (progn
                         ,form
-                        t)
+                        (values))
                     (type-error (e)
                       (type-error-expected-type e)))))
       (with-named-databases ((db-str "db-str" :cmp :string)
                              (db-u32 "db-u32" :cmp :u32))
-        (assert-true (expected-type ($ "foobar" db-str)))
+        (assert-false (expected-type ($ "foobar" db-str)))
         (assert-equal 'string (expected-type ($ pi db-str)))
-        (assert-true (expected-type ($ #x0 db-u32)))
-        (assert-true (expected-type ($ #xFFFFFFFF db-u32)))
+        (assert-false (expected-type ($ #x0 db-u32)))
+        (assert-false (expected-type ($ #xFFFFFFFF db-u32)))
         (assert-equal '(unsigned-byte 32) (expected-type ($ pi db-u32)))
         (assert-equal '(unsigned-byte 32) (expected-type ($ -1 db-u32)))
         (assert-equal '(unsigned-byte 32) (expected-type ($ (1+ #xFFFFFFFF) db-u32)))))))
