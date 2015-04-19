@@ -126,6 +126,70 @@
         (assert-equal '(unsigned-byte 32) (expected-type ($ -1 db-u32)))
         (assert-equal '(unsigned-byte 32) (expected-type ($ (1+ #xFFFFFFFF) db-u32)))))))
 
+(define-test transaction-successed
+  (with-temp-sophia-directory ()
+    (with-database ("test")
+      (with-transaction ()
+        (setf ($ "x") "a"
+              ($ "y") "b"))
+      (assert-equal "a" ($ "x"))
+      (assert-equal "b" ($ "y")))))
+
+(define-test transaction-failed
+  (with-temp-sophia-directory ()
+    (with-database ("test" :cmp :u32)
+      (with-transaction ()
+        (setf ($ 1) "a"
+              ($ 2) "b"))
+      (ignore-errors
+        (with-transaction ()
+          (setf ($ 1) nil)
+          (error "Bam!")))
+      (assert-equal "a" ($ 1))
+      (assert-equal "b" ($ 2)))))
+
+(define-test nested-transaction-sucessed
+  (with-temp-sophia-directory ()
+    (with-named-databases ((strdb "strdb" :cmp :string)
+                           (u32db "u32db" :cmp :u32))
+      (with-transaction ()
+        (setf ($ "x" strdb) "a"
+              ($ "y" strdb) "b")
+        (setf ($ 100 u32db) "a"
+              ($ 101 u32db) "b")
+        (with-transaction ()
+          (setf ($ "z" strdb) "c"
+                ($ 102 u32db) "c")))
+
+      (assert-equal "a" ($ "x" strdb))
+      (assert-equal "b" ($ "y" strdb))
+      (assert-equal "c" ($ "z" strdb))
+      (assert-equal "a" ($ 100 u32db))
+      (assert-equal "b" ($ 101 u32db))
+      (assert-equal "c" ($ 102 u32db)))
+
+    (with-database ("strdb")
+      (assert-equal "a" ($ "x"))
+      (assert-equal "b" ($ "y"))
+      (assert-equal "c" ($ "z")))
+
+    (with-database ("u32db" :cmp :u32)
+      (assert-equal "a" ($ 100))
+      (assert-equal "b" ($ 101))
+      (assert-equal "c" ($ 102)))))
+
+(define-test nested-transaction-locked-rollback
+  (with-temp-sophia-directory ()
+    (with-database ("test")
+      (with-transaction ()
+        (setf ($ "foo") "bar")
+        (handler-bind ((transaction-locked #'rollback))
+          (with-transaction ()
+            (setf ($ "foo") "baz"
+                  ($ "xyz") "42"))))
+      (assert-equal "bar" ($ "foo"))
+      (assert-false ($ "xyz")))))
+
 (defun run ()
   (let ((*print-summary* t))
     (with-temp-directory (temp)
