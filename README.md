@@ -1,6 +1,16 @@
 # CL-SOPHIA
 Common Lisp binding for Sophia database
 
+### Installation
+##### libsophia
+```
+$ cd install
+$ make
+$ sudo make install
+```
+##### cl-sophia
+Quicklisp coming soon
+
 ### Examples
 ##### Set and get
 ```lisp
