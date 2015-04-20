@@ -7,8 +7,8 @@
 (in-package #:cl-sophia-asd)
 
 (defsystem #:cl-sophia
-  :description "Sophia database binding"
-  :version "0.0.1"
+  :description "Sophia key-value storage highlevel API"
+  :version "1.0.0"
   :author "Andrey V. Tikhonov <multimethod at yandex.ru>"
   :licence "BSD License"
   :serial t
@@ -20,7 +20,7 @@
 
 (defsystem #:cl-sophia-test
   :description "cl-sophia test suite"
-  :version "0.0.1"
+  :version "1.0.0"
   :author "Andrey V. Tikhonov <multimethod at yandex.ru>"
   :licence "BSD License"
   :depends-on (#:cl-sophia
