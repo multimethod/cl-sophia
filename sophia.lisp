@@ -137,6 +137,10 @@
           (:u32
            (check-type key (unsigned-byte 32))
            (with-object-foreign-type-field (:uint32 object "key" key)
+             (get% object)))
+          (:u64
+           (check-type key (unsigned-byte 64))
+           (with-object-foreign-type-field (:uint64 object "key" key)
              (get% object))))))))
 
 (defun $ (key &optional (db *db*))
@@ -162,6 +166,10 @@
           (:u32
            (check-type key (unsigned-byte 32))
            (with-object-foreign-type-field (:uint32 object "key" key)
+             (set-or-delete% object)))
+          (:u64
+           (check-type key (unsigned-byte 64))
+           (with-object-foreign-type-field (:uint64 object "key" key)
              (set-or-delete% object))))))
     (values)))
 
@@ -280,7 +288,9 @@
                                     (:string
                                      (get-object-field iterate-object "key"))
                                     (:u32
-                                     (get-object-foreign-type-field :uint32 iterate-object "key")))
+                                     (get-object-foreign-type-field :uint32 iterate-object "key"))
+                                    (:u64
+                                     (get-object-foreign-type-field :uint64 iterate-object "key")))
                                   (get-object-field iterate-object "value"))
                         (setf iterate-object (sp-get iterator :pointer iterate-object)))))))))))
 

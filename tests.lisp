@@ -122,14 +122,25 @@
                     (type-error (e)
                       (type-error-expected-type e)))))
       (with-named-databases ((db-str "db-str" :cmp :string)
-                             (db-u32 "db-u32" :cmp :u32))
+                             (db-u32 "db-u32" :cmp :u32)
+                             (db-u64 "db-u64" :cmp :u64))
+        ;; string
         (assert-false (expected-type ($ "foobar" db-str)))
         (assert-equal 'string (expected-type ($ pi db-str)))
+
+        ;; u32
         (assert-false (expected-type ($ #x0 db-u32)))
         (assert-false (expected-type ($ #xFFFFFFFF db-u32)))
         (assert-equal '(unsigned-byte 32) (expected-type ($ pi db-u32)))
         (assert-equal '(unsigned-byte 32) (expected-type ($ -1 db-u32)))
-        (assert-equal '(unsigned-byte 32) (expected-type ($ (1+ #xFFFFFFFF) db-u32)))))))
+        (assert-equal '(unsigned-byte 32) (expected-type ($ (1+ #xFFFFFFFF) db-u32)))
+
+        ;; u64
+        (assert-false (expected-type ($ #x0 db-u64)))
+        (assert-false (expected-type ($ #xFFFFFFFFFFFFFFFF db-u64)))
+        (assert-equal '(unsigned-byte 64) (expected-type ($ pi db-u64)))
+        (assert-equal '(unsigned-byte 64) (expected-type ($ -1 db-u64)))
+        (assert-equal '(unsigned-byte 64) (expected-type ($ (1+ #xFFFFFFFFFFFFFFFF) db-u64)))))))
 
 (define-test transaction-successed
   (with-temp-sophia-directory ()
