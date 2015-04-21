@@ -17,11 +17,7 @@
                 #:with-unique-names
                 #:once-only
                 #:iota
-                #:curry)
-
-  (:import-from #:cl-utilities
-                #:collecting
-                #:collect))
+                #:curry))
 
 (in-package #:cl-sophia-test)
 

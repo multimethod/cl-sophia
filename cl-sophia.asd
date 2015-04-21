@@ -20,9 +20,9 @@
   :version "1.0.0"
   :author "Andrey V. Tikhonov <multimethod@yandex.ru>"
   :licence "WTFPL"
-  :serial t
   :depends-on (#:cffi
                #:alexandria)
+  :serial t
   :components ((:file "package")
                (:file "foreign")
                (:file "sophia")))
@@ -35,7 +35,6 @@
   :depends-on (#:cl-sophia
                #:alexandria
                #:cl-fad
-               #:cl-utilities
                #:lisp-unit)
   :serial t
   :components ((:file "tests")))
