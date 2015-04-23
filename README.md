@@ -1,5 +1,5 @@
 # CL-SOPHIA
-Common Lisp highlevel API for [Sophia key-value storage](http://sphia.org/)
+Common Lisp high-level API for [Sophia key-value storage](http://sphia.org/)
 
 ### Installation
 ##### libsophia
