@@ -26,20 +26,99 @@
            :format-arguments (cdr arguments)))
   (values pointer))
 
-(defmacro with-object-field ((object key value) &body body)
-  (with-unique-names (fvalue fvalue-size)
-    (once-only (object key value)
-      `(with-foreign-string ((,fvalue ,fvalue-size) ,value)
-         (check-retcode (sp-set ,object :string ,key :pointer ,fvalue :int ,fvalue-size))
-         ,@body))))
+(defgeneric capture-field (foreign-type object key value)
+  )
 
-(defmacro with-object-foreign-type-field ((foreign-type object key value) &body body)
-  (with-unique-names (fvalue)
-    (once-only (foreign-type object key value)
-      `(with-foreign-object (,fvalue ,foreign-type)
-         (setf (mem-ref ,fvalue ,foreign-type) ,value)
-         (check-retcode (sp-set ,object :string ,key :pointer ,fvalue :int (foreign-type-size ,foreign-type)))
-         ,@body))))
+(defgeneric release-field (foreign-type field)
+  )
+
+(defmethod capture-field (foreign-type object key value)
+  (let ((fvalue (foreign-alloc foreign-type :initial-element value)))
+    (check-retcode (sp-set object :string key :pointer fvalue :int (foreign-type-size foreign-type)))
+    (values fvalue)))
+
+(defmethod release-field (foreign-type field)
+  (declare (ignore foreign-type))
+  (foreign-free field)
+  (values))
+
+(defmethod capture-field ((foreign-type (eql :string)) object key value)
+  (multiple-value-bind (fvalue fvalue-size) (foreign-string-alloc value)
+    (check-retcode (sp-set object :string key :pointer fvalue :int fvalue-size))
+    (values fvalue)))
+
+(defmethod release-field ((foreign-type (eql :string)) field)
+  (foreign-string-free field)
+  (values))
+
+(defun call-with-field (function foreign-type object key value)
+  (let ((field (capture-field foreign-type object key value)))
+    (unwind-protect
+         (funcall function)
+      (release-field foreign-type field))))
+
+(defmacro with-field ((foreign-type object key value) &body body)
+  `(call-with-field (lambda () ,@body)
+                    ,foreign-type
+                    ,object
+                    ,key
+                    ,value))
+
+(defgeneric capture-key-field-by-comparator (comparator object value)
+  )
+
+(defmethod capture-key-field-by-comparator ((comparator (eql :string)) object value)
+  (check-type value string)
+  (values :string
+          (capture-field :string object "key" value)))
+
+(defmethod capture-key-field-by-comparator ((comparator (eql :u32)) object value)
+  (check-type value (unsigned-byte 32))
+  (values :uint32
+          (capture-field :uint32 object "key" value)))
+
+(defmethod capture-key-field-by-comparator ((comparator (eql :u64)) object value)
+  (check-type value (unsigned-byte 64))
+  (values :uint64
+          (capture-field :uint64 object "key" value)))
+
+(defun call-with-key-field-by-comparator (function comparator object value)
+  (multiple-value-bind (foreign-type field)
+      (capture-key-field-by-comparator comparator object value)
+    (unwind-protect
+         (funcall function)
+      (release-field foreign-type field))))
+
+(defmacro with-key-field-by-comparator ((comparator object value) &body body)
+  `(call-with-key-field-by-comparator (lambda () ,@body)
+                                      ,comparator
+                                      ,object
+                                      ,value))
+
+(defgeneric get-field (foreign-type object key)
+  )
+
+(defmethod get-field (foreign-type object key)
+  (check-type key string)
+  (mem-ref (check-pointer (sp-get object :string key :pointer (null-pointer)))
+           foreign-type))
+
+(defmethod get-field ((foreign-type (eql :string)) object key)
+  (check-type key string)
+  (nth-value 0 (foreign-string-to-lisp (check-pointer (sp-get object :string key :pointer (null-pointer))))))
+
+(defgeneric get-key-field (comparator object)
+  )
+
+(defmethod get-key-field ((comparator (eql :string)) object)
+  (get-field :string object "key"))
+
+(defmethod get-key-field ((comparator (eql :u32)) object)
+  (get-field :uint32 object "key"))
+
+(defmethod get-key-field ((comparator (eql :u64)) object)
+  (get-field :uint64 object "key"))
+
 
 (defclass db ()
   ((dbh :initarg :dbh :initform nil)
@@ -113,70 +192,28 @@
                      :cmp cmp)
     (add-dbname dbname)))
 
-(defun get-object-field (obj key)
-  (foreign-string-to-lisp (check-pointer (sp-get obj :string key :pointer (null-pointer)))))
-
-(defun get-object-foreign-type-field (foreign-type obj key)
-  (mem-ref (check-pointer (sp-get obj :string key :pointer (null-pointer)))
-           foreign-type))
-
-(defun get-object (db ctx key)
-  (with-slots (dbh cmp) db
-    (flet ((get% (object)
-             (let ((result (sp-get ctx :pointer object)))
-               (unless (null-pointer-p result)
-                 (unwind-protect
-                      (get-object-field result "value")
-                   (sp-destroy result))))))
-      (let ((object (sp-object dbh)))
-        (ecase cmp
-          (:string
-           (check-type key string)
-           (with-object-field (object "key" key)
-             (get% object)))
-          (:u32
-           (check-type key (unsigned-byte 32))
-           (with-object-foreign-type-field (:uint32 object "key" key)
-             (get% object)))
-          (:u64
-           (check-type key (unsigned-byte 64))
-           (with-object-foreign-type-field (:uint64 object "key" key)
-             (get% object))))))))
-
 (defun $ (key &optional (db *db*))
   (check-type db db)
-  (let ((ctx (or *ctx* (slot-value db 'dbh))))
-    (get-object db ctx key)))
-
-
-(defun set-object (db ctx key value)
-  (check-type value (or null string))
   (with-slots (dbh cmp) db
-    (flet ((set-or-delete% (object)
-             (if value
-                 (with-object-field (object "value" value)
-                   (check-retcode (sp-set ctx :pointer object)))
-                 (check-retcode (sp-delete ctx object)))))
+    (let ((ctx (or *ctx* (slot-value db 'dbh))))
       (let ((object (sp-object dbh)))
-        (ecase cmp
-          (:string
-           (check-type key string)
-           (with-object-field (object "key" key)
-             (set-or-delete% object)))
-          (:u32
-           (check-type key (unsigned-byte 32))
-           (with-object-foreign-type-field (:uint32 object "key" key)
-             (set-or-delete% object)))
-          (:u64
-           (check-type key (unsigned-byte 64))
-           (with-object-foreign-type-field (:uint64 object "key" key)
-             (set-or-delete% object))))))
-    (values)))
+        (with-key-field-by-comparator (cmp object key)
+          (let ((result (sp-get ctx :pointer object)))
+            (unless (null-pointer-p result)
+              (unwind-protect
+                   (get-field :string result "value")
+                (check-retcode (sp-destroy result))))))))))
 
 (defun (setf $) (value key &optional (db *db*))
   (check-type db db)
-  (let ((ctx (or *ctx* (slot-value db 'dbh))))
-    (set-object db ctx key value))
+  (with-slots (dbh cmp) db
+    (let ((ctx (or *ctx* (slot-value db 'dbh))))
+      (let ((object (sp-object dbh)))
+        (with-key-field-by-comparator (cmp object key)
+          (if value
+              (with-field (:string object "value" value)
+                (check-retcode (sp-set ctx :pointer object)))
+              (check-retcode (sp-delete ctx object)))))))
   (values value))
 
 (defmacro with-env (() &body body)
@@ -204,13 +241,6 @@
 (defmacro with-database ((dbname &rest settings) &body body)
   `(with-env ()
      (with-db (*db* ,dbname ,@settings)
-       (open-env)
-       ,@body)))
-
-(defmacro with-named-database ((&whole clause name dbname &rest settings) &body body)
-  (declare (ignore name dbname settings))
-  `(with-env ()
-     (with-db ,clause
        (open-env)
        ,@body)))
 
@@ -284,14 +314,8 @@
                     (unless (null-pointer-p iterate-object)
                       (multiple-value-prog1
                           (values t
-                                  (case cmp
-                                    (:string
-                                     (get-object-field iterate-object "key"))
-                                    (:u32
-                                     (get-object-foreign-type-field :uint32 iterate-object "key"))
-                                    (:u64
-                                     (get-object-foreign-type-field :uint64 iterate-object "key")))
-                                  (get-object-field iterate-object "value"))
+                                  (get-key-field cmp iterate-object)
+                                  (get-field :string iterate-object "value"))
                         (setf iterate-object (sp-get iterator :pointer iterate-object)))))))))))
 
 (defun free-db-iterator (iterator)

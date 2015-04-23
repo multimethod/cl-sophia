@@ -18,7 +18,6 @@
                 #:once-only)
   (:export #:$
            #:with-database
-           #:with-named-database
            #:with-named-databases
            #:with-transaction
            #:transaction-locked
