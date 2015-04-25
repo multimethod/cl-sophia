@@ -134,18 +134,6 @@
 
 (defparameter *path* (namestring (merge-pathnames ".cl-sophia-storage/" (user-homedir-pathname))))
 
-(defun init-env ()
-  (check-pointer (sp-env)))
-
-(defun open-env ()
-  (check-retcode (sp-open *env*)))
-
-(defun free-env ()
-  (check-retcode (sp-destroy *env*)))
-
-(defun init-ctl ()
-  (check-pointer (sp-ctl *env*)))
-
 (defun cfg (key)
   (let ((obj (sp-get *ctl* :string key)))
     (unless (null-pointer-p obj)
@@ -217,15 +205,29 @@
               (check-retcode (sp-delete ctx object)))))))
   (values value))
 
-(defmacro with-env (() &body body)
-  `(let ((*env* (init-env)))
-     (unwind-protect
-          (let ((*ctl* (init-ctl)))
-            (setf (cfg "sophia.path") *path*)
-            (let ((*dbnames* (hack-init-dbs)))
-              (progn
-                ,@body)))
-       (free-env))))
+(defun get-environment ()
+  (check-pointer (sp-env)))
+
+(defun release-environment (environment)
+  (check-retcode (sp-destroy environment)))
+
+(defun open-environment (environment)
+  (check-retcode (sp-open environment)))
+
+(defun get-control (environment)
+  (check-pointer (sp-ctl environment)))
+
+(defun call-with-environment (function)
+  (let ((*env* (get-environment)))
+    (unwind-protect
+         (let ((*ctl* (get-control *env*)))
+           (setf (cfg "sophia.path") *path*)
+           (let ((*dbnames* (hack-init-dbs)))
+             (funcall function)))
+      (release-environment *env*))))
+
+(defmacro with-environment (() &body body)
+  `(call-with-environment (lambda () ,@body)))
 
 (defmacro with-db ((name dbname &rest settings) &body body)
   `(let ((,name (init-db ,dbname ,@settings)))
@@ -240,16 +242,16 @@
              ,@body))))
 
 (defmacro with-database ((dbname &rest settings) &body body)
-  `(with-env ()
+  `(with-environment ()
      (with-db (*db* ,dbname ,@settings)
-       (open-env)
+       (open-environment *env*)
        ,@body)))
 
 (defmacro with-named-databases (((&whole clause name dbname &rest settings) &rest clauses) &body body)
   (declare (ignore name dbname settings))
-  `(with-env ()
+  `(with-environment ()
      (with-dbs ,(cons clause clauses)
-       (open-env)
+       (open-environment *env*)
        ,@body)))
 
 (defun init-transaction ()
