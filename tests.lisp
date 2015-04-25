@@ -83,6 +83,15 @@
       (assert-equal "bar" ($ "x"))
       (assert-false ($ "y")))))
 
+(define-test nested-databases
+  (with-temp-sophia-directory ()
+    (with-database ("a")
+      (setf ($ "foo") "bar")
+      (with-database ("b" :cmp :u32)
+        (setf ($ 42) "baz")
+        (assert-equal "baz" ($ 42)))
+      (assert-equal "bar" ($ "foo")))))
+
 (define-test iterators
   (with-temp-sophia-directory ()
     (with-database ("test" :cmp :u32)
@@ -131,17 +140,17 @@
 
         ;; u32
         (assert-false (expected-type ($ #x0 db-u32)))
-        (assert-false (expected-type ($ #xFFFFFFFF db-u32)))
+        (assert-false (expected-type ($ #1=#xFFFFFFFF db-u32)))
         (assert-equal '(unsigned-byte 32) (expected-type ($ pi db-u32)))
         (assert-equal '(unsigned-byte 32) (expected-type ($ -1 db-u32)))
-        (assert-equal '(unsigned-byte 32) (expected-type ($ (1+ #xFFFFFFFF) db-u32)))
+        (assert-equal '(unsigned-byte 32) (expected-type ($ (1+ #1#) db-u32)))
 
         ;; u64
         (assert-false (expected-type ($ #x0 db-u64)))
-        (assert-false (expected-type ($ #xFFFFFFFFFFFFFFFF db-u64)))
+        (assert-false (expected-type ($ #2=#xFFFFFFFFFFFFFFFF db-u64)))
         (assert-equal '(unsigned-byte 64) (expected-type ($ pi db-u64)))
         (assert-equal '(unsigned-byte 64) (expected-type ($ -1 db-u64)))
-        (assert-equal '(unsigned-byte 64) (expected-type ($ (1+ #xFFFFFFFFFFFFFFFF) db-u64)))))))
+        (assert-equal '(unsigned-byte 64) (expected-type ($ (1+ #2#) db-u64)))))))
 
 (define-test transaction-successed
   (with-temp-sophia-directory ()
@@ -161,7 +170,7 @@
       (ignore-errors
         (with-transaction ()
           (setf ($ 1) nil)
-          (error "Bam!")))
+          (error "Ka-Boom!")))
       (assert-equal "a" ($ 1))
       (assert-equal "b" ($ 2)))))
 
