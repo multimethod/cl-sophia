@@ -17,7 +17,7 @@
 (in-package #:cl-sophia-asd)
 
 (defsystem #:cl-sophia
-  :description "Sophia key-value storage highlevel API"
+  :description "High-level API for Sophia key-value storage"
   :version "1.0.0"
   :author "Andrey V. Tikhonov <multimethod@yandex.ru>"
   :licence "WTFPL"
