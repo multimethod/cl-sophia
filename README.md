@@ -36,7 +36,7 @@ Quicklisp coming soon
 ```
 ##### Transaction
 ```lisp
-(with-database ("test" :cmp :u32)
+(with-database ("test" :comparator :u32)
   (with-transaction ()
     (setf ($ 0) "a"
           ($ 1) "b"
@@ -69,7 +69,7 @@ Quicklisp coming soon
 ```
 ##### Iterators
 ```lisp
-(with-database ("test" :cmp :u32)
+(with-database ("test" :comparator :u32)
   (dotimes (i 3)
     (setf ($ i) (format nil "~r" i)))
   (let (result)
