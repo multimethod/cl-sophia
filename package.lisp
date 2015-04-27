@@ -16,7 +16,9 @@
         #:cffi)
   (:import-from #:alexandria
                 #:with-unique-names
-                #:once-only)
+                #:once-only
+                #:string-designator
+                #:when-let)
   (:export #:$
            #:with-database
            #:with-named-databases

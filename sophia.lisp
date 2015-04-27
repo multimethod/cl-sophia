@@ -169,23 +169,46 @@
 (deftype comparator ()
   `(member :string :u32 :u64))
 
-(defun init-db (dbname &key (cmp :string))
-  (check-type dbname string)
-  (check-type cmp comparator)
+(defmacro with-schema-path ((path database-name) &body body)
+  `(let ((,path (ensure-directories-exist
+                 (cl-fad:merge-pathnames-as-file *path* ".cl-sophia-schema/" ,database-name))))
+     ,@body))
 
-  (unless (find dbname *dbnames* :test #'string=)
-    (setf (cfg "db") dbname))
+(defun validate-schema (name &key (comparator :string))
+  (check-type comparator comparator)
+  (with-schema-path (schema-path name)
+    (when-let ((schema (with-open-file (stream schema-path :if-does-not-exist nil)
+                         (when stream
+                           (read stream)))))
+      (let ((schema-comparator (or (getf schema :comparator) :string)))
+        (unless (eq comparator schema-comparator)
+          (error "Comparator ~a not eq ~a." comparator schema-comparator)))))
+  (values `(:comparator ,comparator)))
 
-  (check-retcode (sp-set *ctl*
-                         :string (format nil "db.~a.index.cmp" dbname)
-                         :string (string-downcase (string cmp))
-                         :pointer (null-pointer)))
-  (multiple-value-prog1
-      (make-instance
-       'database
-       :handle (check-pointer (sp-get *ctl* :string (format nil "db.~a" dbname)))
-       :comparator cmp)
-    (add-dbname dbname)))
+(defun store-schema (name &key (comparator :string))
+  (with-schema-path (schema-path name)
+    (with-open-file (stream schema-path :direction :output :if-exists :supersede)
+      (write `(:comparator ,comparator) :stream stream))))
+
+(defun init-db (name &rest schema)
+  (check-type name string-designator)
+  (let ((name (string name)))
+    (apply #'validate-schema name schema)
+    (unless (find name *dbnames* :test #'string=)
+      (setf (cfg "db") name)))
+
+  (let ((comparator (string-downcase (string (or (getf schema :comparator) :string)))))
+    (check-retcode (sp-set *ctl*
+                           :string (format nil "db.~a.index.cmp" name)
+                           :string comparator
+                           :pointer (null-pointer)))
+    (multiple-value-prog1
+        (make-instance
+         'database
+         :handle (check-pointer (sp-get *ctl* :string (format nil "db.~a" name)))
+         :comparator (or (getf schema :comparator) :string))
+      (add-dbname name)
+      (apply #'store-schema name schema))))
 
 (defun $ (key &optional (db *db*))
   (check-type db database)

@@ -87,14 +87,14 @@
   (with-temp-sophia-directory ()
     (with-database ("a")
       (setf ($ "foo") "bar")
-      (with-database ("b" :cmp :u32)
+      (with-database ("b" :comparator :u32)
         (setf ($ 42) "baz")
         (assert-equal "baz" ($ 42)))
       (assert-equal "bar" ($ "foo")))))
 
 (define-test iterators
   (with-temp-sophia-directory ()
-    (with-database ("test" :cmp :u32)
+    (with-database ("test" :comparator :u32)
       (let* ((keys (iota 1000))
              (vals (mapcar (curry #'format nil "~r") keys)))
         (mapc (lambda (k v)
@@ -131,9 +131,9 @@
                         (values))
                     (type-error (e)
                       (type-error-expected-type e)))))
-      (with-named-databases ((db-str "db-str" :cmp :string)
-                             (db-u32 "db-u32" :cmp :u32)
-                             (db-u64 "db-u64" :cmp :u64))
+      (with-named-databases ((db-str "db-str" :comparator :string)
+                             (db-u32 "db-u32" :comparator :u32)
+                             (db-u64 "db-u64" :comparator :u64))
         ;; string
         (assert-false (expected-type ($ "foobar" db-str)))
         (assert-equal 'string (expected-type ($ pi db-str)))
@@ -163,7 +163,7 @@
 
 (define-test transaction-failed
   (with-temp-sophia-directory ()
-    (with-database ("test" :cmp :u32)
+    (with-database ("test" :comparator :u32)
       (with-transaction ()
         (setf ($ 1) "a"
               ($ 2) "b"))
@@ -176,8 +176,8 @@
 
 (define-test nested-transaction-sucessed
   (with-temp-sophia-directory ()
-    (with-named-databases ((strdb "strdb" :cmp :string)
-                           (u32db "u32db" :cmp :u32))
+    (with-named-databases ((strdb "strdb" :comparator :string)
+                           (u32db "u32db" :comparator :u32))
       (with-transaction ()
         (setf ($ "x" strdb) "a"
               ($ "y" strdb) "b")
@@ -199,7 +199,7 @@
       (assert-equal "b" ($ "y"))
       (assert-equal "c" ($ "z")))
 
-    (with-database ("u32db" :cmp :u32)
+    (with-database ("u32db" :comparator :u32)
       (assert-equal "a" ($ 100))
       (assert-equal "b" ($ 101))
       (assert-equal "c" ($ 102)))))

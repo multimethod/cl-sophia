@@ -18,11 +18,12 @@
 
 (defsystem #:cl-sophia
   :description "High-level API for Sophia key-value storage"
-  :version "1.0.0"
+  :version "1.1.0"
   :author "Andrey V. Tikhonov <multimethod@yandex.ru>"
   :licence "WTFPL"
   :depends-on (#:cffi
-               #:alexandria)
+               #:alexandria
+               #:cl-fad)
   :serial t
   :components ((:file "package")
                (:file "foreign")
@@ -30,7 +31,7 @@
 
 (defsystem #:cl-sophia-test
   :description "cl-sophia test suite"
-  :version "1.0.0"
+  :version "1.1.0"
   :author "Andrey V. Tikhonov <multimethod@yandex.ru>"
   :licence "WTFPL"
   :depends-on (#:cl-sophia
