@@ -11,7 +11,9 @@
 (in-package #:cl-sophia)
 
 (define-condition internal-error (simple-error)
-  ((retcode :initarg :retcode :initform nil)))
+  ((retcode
+    :initarg :retcode
+    :initform nil)))
 
 (defun check-retcode (retcode &rest arguments)
   (unless (= 0 retcode)
@@ -120,10 +122,13 @@
 (defmethod get-key-field ((comparator (eql :u64)) object)
   (get-field :uint64 object "key"))
 
-
-(defclass db ()
-  ((dbh :initarg :dbh :initform nil)
-   (cmp :initarg :cmp :initform :string)))
+(defclass database ()
+  ((handle
+    :initarg :handle
+    :initform nil)
+   (comparator
+    :initarg  :comparator
+    :initform :string)))
 
 (defparameter *env* nil)
 (defparameter *ctl* nil)
@@ -175,18 +180,19 @@
                          :string (format nil "db.~a.index.cmp" dbname)
                          :string (string-downcase (string cmp))
                          :pointer (null-pointer)))
-  (prog1
-      (make-instance 'db
-                     :dbh (check-pointer (sp-get *ctl* :string (format nil "db.~a" dbname)))
-                     :cmp cmp)
+  (multiple-value-prog1
+      (make-instance
+       'database
+       :handle (check-pointer (sp-get *ctl* :string (format nil "db.~a" dbname)))
+       :comparator cmp)
     (add-dbname dbname)))
 
 (defun $ (key &optional (db *db*))
-  (check-type db db)
-  (with-slots (dbh cmp) db
-    (let ((ctx (or *ctx* (slot-value db 'dbh))))
-      (let ((object (sp-object dbh)))
-        (with-key-field-by-comparator (cmp object key)
+  (check-type db database)
+  (with-slots (handle comparator) db
+    (let ((ctx (or *ctx* handle)))
+      (let ((object (sp-object handle)))
+        (with-key-field-by-comparator (comparator object key)
           (let ((result (sp-get ctx :pointer object)))
             (unless (null-pointer-p result)
               (unwind-protect
@@ -194,11 +200,11 @@
                 (check-retcode (sp-destroy result))))))))))
 
 (defun (setf $) (value key &optional (db *db*))
-  (check-type db db)
-  (with-slots (dbh cmp) db
-    (let ((ctx (or *ctx* (slot-value db 'dbh))))
-      (let ((object (sp-object dbh)))
-        (with-key-field-by-comparator (cmp object key)
+  (check-type db database)
+  (with-slots (handle comparator) db
+    (let ((ctx (or *ctx* handle)))
+      (let ((object (sp-object handle)))
+        (with-key-field-by-comparator (comparator object key)
           (if value
               (with-field (:string object "value" value)
                 (check-retcode (sp-set ctx :pointer object)))
@@ -306,9 +312,9 @@
   (check-retcode (sp-set obj :string "order" :string (string order))))
 
 (defun init-db-iterator (db)
-  (with-slots (dbh cmp) db
-    (let ((ctx (or *ctx* dbh)))
-      (let ((object (sp-object dbh)))
+  (with-slots (handle comparator) db
+    (let ((ctx (or *ctx* handle)))
+      (let ((object (sp-object handle)))
         (set-order object *order*)
         (let* ((iterator (check-pointer (sp-cursor ctx :pointer object)))
                (iterate-object (sp-get iterator :pointer object)))
@@ -317,7 +323,7 @@
                     (unless (null-pointer-p iterate-object)
                       (multiple-value-prog1
                           (values t
-                                  (get-key-field cmp iterate-object)
+                                  (get-key-field comparator iterate-object)
                                   (get-field :string iterate-object "value"))
                         (setf iterate-object (sp-get iterator :pointer iterate-object)))))))))))
 
