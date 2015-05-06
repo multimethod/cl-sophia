@@ -9,7 +9,9 @@ $ make
 $ sudo make install
 ```
 ##### cl-sophia
+```lisp
 (ql:quickload "cl-sophia")
+```
 
 ### Examples
 ##### Set and get
